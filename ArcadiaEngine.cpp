@@ -3,6 +3,7 @@
 
 #include "ArcadiaEngine.h"
 #include <algorithm>
+#include <bitset>
 #include <queue>
 #include <numeric>
 #include <climits>
@@ -102,7 +103,18 @@ int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
     // TODO: Implement partition problem using DP
     // Goal: Minimize |sum(subset1) - sum(subset2)|
     // Hint: Use subset sum DP to find closest sum to total/2
-    return 0;
+
+    const int ts = accumulate(coins.begin(), coins.end(), 0);
+    bitset<10001> dp;
+    dp[0] = true;
+    for (const auto i : coins) dp |= dp << i;
+
+    for (int s = ts/2; s >= 0; s--) {
+        if (dp[s]) {
+            return abs(ts - 2 * s);
+        }
+    }
+    return INT_MAX;
 }
 
 int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& items) {
