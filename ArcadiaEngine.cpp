@@ -103,15 +103,19 @@ int InventorySystem::optimizeLootSplit(int n, vector<int>& coins) {
     // TODO: Implement partition problem using DP
     // Goal: Minimize |sum(subset1) - sum(subset2)|
     // Hint: Use subset sum DP to find closest sum to total/2
-
-    const int ts = accumulate(coins.begin(), coins.end(), 0);
-    bitset<10001> dp;
+    const int total = accumulate(coins.begin(), coins.end(), 0);
+    const int t = total / 2;
+    vector dp(t + 1, false);
     dp[0] = true;
-    for (const auto i : coins) dp |= dp << i;
 
-    for (int s = ts/2; s >= 0; s--) {
+    for (const int c : coins) {
+        for (int s = t; s >= c; s--) {
+            dp[s] = dp[s] || dp[s - c];
+        }
+    }
+    for (int s = t; s >= 0; s--) {
         if (dp[s]) {
-            return abs(ts - 2 * s);
+            return abs(total - 2 * s);
         }
     }
     return INT_MAX;
@@ -129,7 +133,22 @@ long long InventorySystem::countStringPossibilities(string s) {
     // Rules: "uu" can be decoded as "w" or "uu"
     //        "nn" can be decoded as "m" or "nn"
     // Count total possible decodings
-    return 0;
+    const int n = static_cast<int>(s.size());
+    vector<long long> dp(n + 1, 0);
+    dp[0] = 1;
+
+    for (int i = 1; i <= n; i++) {
+        dp[i] = dp[i - 1];
+
+        if (i >= 2) {
+            const char a = s[i - 2];
+            const char b = s[i - 1];
+            if (a == b && (b == 'u' || b == 'n')) {
+                dp[i] += dp[i - 2];
+            }
+        }
+    }
+    return dp[n];
 }
 
 // =========================================================
