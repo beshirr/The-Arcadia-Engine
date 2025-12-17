@@ -125,7 +125,18 @@ int InventorySystem::maximizeCarryValue(int capacity, vector<pair<int, int>>& it
     // TODO: Implement 0/1 Knapsack using DP
     // items = {weight, value} pairs
     // Return maximum value achievable within capacity
-    return 0;
+    if (capacity <= 0 || items.empty()) return 0;
+
+    vector dp(capacity + 1, 0);
+
+    for (const auto& [weight, value] : items) {
+        if (weight <= 0) continue;
+        if (weight > capacity) continue;
+        for (int w = capacity; w >= weight; --w) {
+            dp[w] = max(dp[w], dp[w - weight] + value);
+        }
+    }
+    return dp[capacity];
 }
 
 long long InventorySystem::countStringPossibilities(string s) {
