@@ -167,10 +167,80 @@ long long InventorySystem::countStringPossibilities(string s) {
 // =========================================================
 
 bool WorldNavigator::pathExists(int n, vector<vector<int>>& edges, int source, int dest) {
-    // TODO: Implement path existence check using BFS or DFS
-    // edges are bidirectional
+
+    vector<vector<int>> adjList(n);
+
+
+    for (const auto& edge : edges) {
+        if (edge[0] >= 0 && edge[0] < n && edge[1] >= 0 && edge[1] < n) {
+            adjList[edge[0]].push_back(edge[1]);
+            adjList[edge[1]].push_back(edge[0]);
+        }
+    }
+    vector<bool> visited(n, false);
+
+
+    queue<int> q;
+    q.push(source);
+    visited[source] = true;
+
+    while (!q.empty()) {
+        int current = q.front();
+        q.pop();
+
+        if (current == dest) {
+            return true;
+        }
+
+        for (int neighbor : adjList[current]) {
+            if (!visited[neighbor]) {
+                visited[neighbor] = true;
+                q.push(neighbor);
+            }
+        }
+    }
+
     return false;
+
 }
+
+class UnionFind {
+private:
+    vector<int> parent, rank;
+
+public:
+    UnionFind(int n) {
+        parent.resize(n);
+        rank.resize(n, 0);
+        for (int i = 0; i < n; ++i) {
+            parent[i] = i;
+        }
+    }
+
+    int find(int x) {
+        if (parent[x] != x)
+            parent[x] = find(parent[x]);  // Path compression
+        return parent[x];
+    }
+
+    void unionSets(int x, int y) {
+        int rootX = find(x);
+        int rootY = find(y);
+
+        if (rootX != rootY) {
+            // Union by rank
+            if (rank[rootX] > rank[rootY]) {
+                parent[rootY] = rootX;
+            } else if (rank[rootX] < rank[rootY]) {
+                parent[rootX] = rootY;
+            } else {
+                parent[rootY] = rootX;
+                rank[rootX]++;
+            }
+        }
+    }
+};
+
 
 long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long long silverRate,
                                        vector<vector<int>>& roadData) {
@@ -178,7 +248,43 @@ long long WorldNavigator::minBribeCost(int n, int m, long long goldRate, long lo
     // roadData[i] = {u, v, goldCost, silverCost}
     // Total cost = goldCost * goldRate + silverCost * silverRate
     // Return -1 if graph cannot be fully connected
-    return -1;
+    vector<vector<long long>> edges;
+    for (const auto& road : roadData) {
+        int u = road[0];
+        int v = road[1];
+        long long goldCost = road[2];
+        long long silverCost = road[3];
+
+        long long totalCost = goldCost * goldRate + silverCost * silverRate;
+
+        edges.push_back({totalCost, u, v});
+    }
+
+    sort(edges.begin(), edges.end());
+
+    UnionFind uf(n);
+    long long mstCost = 0;
+    int edgesInMST = 0;
+
+    for (const auto& edge : edges) {
+        long long totalCost = edge[0];
+        int u = edge[1];
+        int v = edge[2];
+
+        if (uf.find(u) != uf.find(v)) {
+            uf.unionSets(u, v);
+            mstCost += totalCost;
+            edgesInMST++;
+        }
+
+        if (edgesInMST == n - 1) break;
+    }
+
+    if (edgesInMST == n - 1) {
+        return mstCost;
+    } else {
+        return -1;
+    }
 }
 
 string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) {
@@ -186,7 +292,59 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
     // Sum all shortest distances between unique pairs (i < j)
     // Return the sum as a binary string
     // Hint: Handle large numbers carefully
-    return "0";
+    // Step 1: Initialize the distance matrix with infinity (INT_MAX) for unconnected cities
+    // Step 1: Initialize the adjacency list for the graph
+    vector<vector<int>> dist(n, vector<int>(n, INT_MAX));
+
+
+
+
+
+    for (int i = 0; i < n; ++i) {
+        dist[i][i] = 0;
+    }
+    for (const auto& road : roads) {
+        int u = road[0];
+        int v = road[1];
+        int distance = road[2];
+        dist[u][v] = min(dist[u][v], distance);
+        dist[v][u] = min(dist[v][u], distance);
+    }
+
+
+
+
+    for (int k = 0; k < n; ++k) {
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (dist[i][k] != INT_MAX && dist[k][j] != INT_MAX) {
+                    dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
+                }
+            }
+        }
+    }
+
+
+
+    long long totalDistance = 0;
+    for (int i = 0; i < n; ++i) {
+        for (int j = i + 1; j < n; ++j) {
+            if (dist[i][j] != INT_MAX) {
+                totalDistance += dist[i][j];
+            }
+        }
+    }
+
+    string binarySum = bitset<64>(totalDistance).to_string();
+
+    size_t firstOnePos = binarySum.find('1');
+
+    if (firstOnePos == string::npos) {
+        return "0";
+    }
+
+    return binarySum.substr(firstOnePos);
+
 }
 
 // =========================================================
