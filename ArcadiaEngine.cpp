@@ -351,12 +351,39 @@ string WorldNavigator::sumMinDistancesBinary(int n, vector<vector<int>>& roads) 
 // PART D: SERVER KERNEL (Greedy)
 // =========================================================
 
+int find (const vector<char>& container, const char target) {
+    if (container.empty()) return -1;
+    for (int i = 0; i < container.size(); ++i) {
+        if (container[i] == target) return i;
+    }
+    return -1;
+}
+
+
 int ServerKernel::minIntervals(vector<char>& tasks, int n) {
-    // TODO: Implement task scheduler with cooling time
-    // Same task must wait 'n' intervals before running again
-    // Return minimum total intervals needed (including idle time)
-    // Hint: Use greedy approach with frequency counting
-    return 0;
+    // handles edge case of one task, the cooling time won't affect the output
+    if (tasks.size() == 1) return 1;
+    // handles edge case of no cooling time, processes order does not matter
+    if (n == 0) return tasks.size();
+    map<char, int> processes;
+    vector<int> freq;
+    for (char task : tasks) {
+        processes[task]++;
+    }
+    for (auto p : processes) {
+        freq.push_back(p.second);
+    }
+    int numDistinct = freq.size();
+    // handles edge case of number of distinct values greater than the cooling gaps.
+    if (numDistinct >= n+1) return tasks.size();
+    sort(freq.begin(), freq.end(), greater<int>());
+    int maxFreq = freq[0];
+    int numMaxFreq = 0;
+    for (int i = 1; i < freq.size(); ++i) {
+        if (freq[i] == maxFreq) numMaxFreq++;
+        else break;
+    }
+    return ((maxFreq-1) * n + maxFreq + numMaxFreq);
 }
 
 // =========================================================
