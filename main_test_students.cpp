@@ -1,7 +1,7 @@
 /**
- * main_test_student.cpp
- * Basic "Happy Path" Test Suite for ArcadiaEngine
- * Use this to verify your basic logic against the assignment examples.
+ * main_test_hard.cpp
+ * Hard Test Suite for ArcadiaEngine
+ * Includes edge cases, stress tests, and large inputs.
  */
 
 #include <iostream>
@@ -10,13 +10,11 @@
 #include <iomanip>
 #include <functional>
 #include "ArcadiaEngine.h" 
-
 using namespace std;
 
 // ==========================================
 // FACTORY FUNCTIONS (LINKING)
 // ==========================================
-// These link to the functions at the bottom of your .cpp file
 extern "C" {
     PlayerTable* createPlayerTable();
     Leaderboard* createLeaderboard();
@@ -26,19 +24,20 @@ extern "C" {
 // ==========================================
 // TEST UTILITIES
 // ==========================================
-class StudentTestRunner {
-	int count = 0;
+class HardTestRunner {
+    int count = 0;
     int passed = 0;
     int failed = 0;
 
 public:
     void runTest(string testName, bool condition) {
-		count++;
-        cout << "TEST: " << left << setw(50) << testName;
+        count++;
+        cout << "TEST: " << left << setw(60) << testName;
         if (condition) {
             cout << "[ PASS ]";
             passed++;
-        } else {
+        }
+        else {
             cout << "[ FAIL ]";
             failed++;
         }
@@ -48,164 +47,158 @@ public:
     void printSummary() {
         cout << "\n==========================================" << endl;
         cout << "SUMMARY: Passed: " << passed << " | Failed: " << failed << endl;
+        cout << "TOTAL TESTS: " << count << endl;
         cout << "==========================================" << endl;
-		cout << "TOTAL TESTS: " << count << endl;
-        if (failed == 0) {
-            cout << "Great job! All basic scenarios passed." << endl;
-            cout << "Now make sure to handle edge cases (empty inputs, collisions, etc.)!" << endl;
-        } else {
-            cout << "Some basic tests failed. Check your logic against the PDF examples." << endl;
-        }
     }
 };
 
-StudentTestRunner runner;
+HardTestRunner runner;
 
 // ==========================================
-// PART A: DATA STRUCTURES
+// PART A: DATA STRUCTURES - HARD TESTS
 // ==========================================
+void test_PartA_DataStructures_Hard() {
+    cout << "\n--- Part A: Data Structures (Hard) ---" << endl;
 
-void test_PartA_DataStructures() {
-    cout << "\n--- Part A: Data Structures ---" << endl;
-
-    // 1. PlayerTable (Double Hashing)
-    // Requirement: Basic Insert and Search
+    // --- PlayerTable Edge Cases ---
     PlayerTable* table = createPlayerTable();
-    runner.runTest("PlayerTable: Insert 'Alice' and Search", [&]() {
-        table->insert(101, "Alice");
-        return table->search(101) == "Alice";
-    }());
+    runner.runTest("PlayerTable: search non-existent ID", table->search(9999) == "");
+
+    table->insert(1, "Alice");
+    table->insert(1, "AliceUpdated"); // test replace
+    runner.runTest("PlayerTable: insert duplicate ID", table->search(1) == "AliceUpdated");
+
+    try {
+        // fill table to force full exception (assuming table size 101)
+        for (int i = 2; i <= 102; i++) table->insert(i, "P" + to_string(i));
+        runner.runTest("PlayerTable: overflow table exception", false);
+    }
+    catch (...) {
+        runner.runTest("PlayerTable: overflow table exception", true);
+    }
     delete table;
 
-    // 2. Leaderboard (Skip List)
+    // --- Leaderboard Edge Cases ---
     Leaderboard* board = createLeaderboard();
+    board->addScore(10, 500);
+    board->addScore(20, 500);
+    board->addScore(15, 500);
+    vector<int> top = board->getTopN(3);
+    runner.runTest("Leaderboard: tie-breaking by ID", top[0] == 10 && top[1] == 15 && top[2] == 20);
 
-    // Test A: Basic High Score
-    runner.runTest("Leaderboard: Add Scores & Get Top 1", [&]() {
-        board->addScore(1, 100);
-        board->addScore(2, 200); // 2 is Leader
-        vector<int> top = board->getTopN(1);
-        return (!top.empty() && top[0] == 2);
-    }());
+    // remove non-existent
+    board->removePlayer(999);
+    runner.runTest("Leaderboard: remove non-existent player no crash", true);
 
-    // Test B: Tie-Breaking Visual Example (Crucial!)
-    // PDF Visual Example: Player A (ID 10) 500pts, Player B (ID 20) 500pts.
-    // Correct Order: ID 10 then ID 20.
-    runner.runTest("Leaderboard: Tie-Break (ID 10 before ID 20)", [&]() {
-        board->addScore(10, 500);
-        board->addScore(20, 500);
-        vector<int> top = board->getTopN(2);
-        // We expect {10, 20} NOT {20, 10}
-        if (top.size() < 2) return false;
-        return (top[0] == 10 && top[1] == 20); 
-    }());
-    
+    // stress test: insert 1000 players
+    for (int i = 100; i < 1100; i++) board->addScore(i, i % 1000);
+    runner.runTest("Leaderboard: insert 1000 players", board->getTopN(1).size() == 1);
+
     delete board;
 
-    // 3. AuctionTree (Red-Black Tree)
-    // Requirement: Insert items without crashing
+    // --- AuctionTree Edge Cases ---
     AuctionTree* tree = createAuctionTree();
-    runner.runTest("AuctionTree: Insert Items", [&]() {
-        tree->insertItem(1, 100);
-        tree->insertItem(2, 50);
-        return true; // Pass if no crash
-    }());
+    tree->insertItem(1, 100);
+    tree->insertItem(2, 100); // same price
+    runner.runTest("AuctionTree: insert items with same price", true);
+
+    tree->deleteItem(999); // non-existent
+    runner.runTest("AuctionTree: delete non-existent item no crash", true);
+
+    // stress insert 1000 nodes
+    for (int i = 3; i < 1003; i++) tree->insertItem(i, i * 2);
+    runner.runTest("AuctionTree: insert 1000 nodes", true);
+
     delete tree;
 }
 
 // ==========================================
-// PART B: INVENTORY SYSTEM
+// PART B: INVENTORY SYSTEM - HARD TESTS
 // ==========================================
+void test_PartB_Inventory_Hard() {
+    cout << "\n--- Part B: Inventory System (Hard) ---" << endl;
 
-void test_PartB_Inventory() {
-    cout << "\n--- Part B: Inventory System ---" << endl;
+    // LootSplit edge cases
+    vector<int> coinsEmpty;
+    runner.runTest("LootSplit: empty coins", InventorySystem::optimizeLootSplit(0, coinsEmpty) == 0);
 
-    // 1. Loot Splitting (Partition)
-    // PDF Example: coins = {1, 2, 4} -> Best split {4} vs {1,2} -> Diff 1
-    runner.runTest("LootSplit: {1, 2, 4} -> Diff 1", [&]() {
-        vector<int> coins = {1, 2, 4};
-        return InventorySystem::optimizeLootSplit(3, coins) == 1;
-    }());
+    vector<int> coinsAllSame(10, 5);
+    runner.runTest("LootSplit: all coins same value", InventorySystem::optimizeLootSplit(10, coinsAllSame) == 0);
 
-    // 2. Inventory Packer (Knapsack)
-    // PDF Example: Cap=10, Items={{1,10}, {2,20}, {3,30}}. All fit. Value=60.
-    runner.runTest("Knapsack: Cap 10, All Fit -> Value 60", [&]() {
-        vector<pair<int, int>> items = {{1, 10}, {2, 20}, {3, 30}};
-        return InventorySystem::maximizeCarryValue(10, items) == 60;
-    }());
+    // Knapsack edge cases
+    vector<pair<int, int>> itemsAllHeavy = { {100, 10}, {200,20} };
+    runner.runTest("Knapsack: items too heavy", InventorySystem::maximizeCarryValue(50, itemsAllHeavy) == 0);
 
-    // 3. Chat Autocorrect (String DP)
-    // PDF Example: "uu" -> "uu" or "w" -> 2 possibilities
-    runner.runTest("ChatDecorder: 'uu' -> 2 Possibilities", [&]() {
-        return InventorySystem::countStringPossibilities("uu") == 2;
-    }());
+    vector<pair<int, int>> itemsNormal = { {1,10}, {2,20}, {3,30}, {4,40}, {5,50} };
+    runner.runTest("Knapsack: capacity 10", InventorySystem::maximizeCarryValue(10, itemsNormal) == 100);
+
+    // String decoding
+    runner.runTest("StringDecoder: empty string", InventorySystem::countStringPossibilities("") == 1);
+    runner.runTest("StringDecoder: contains 'w'", InventorySystem::countStringPossibilities("w") == 0);
+
+    // Long string stress test
+    string longU(1000, 'u');
+    runner.runTest("StringDecoder: long 'u' string", InventorySystem::countStringPossibilities(longU) > 0);
 }
 
 // ==========================================
-// PART C: WORLD NAVIGATOR
+// PART C: WORLD NAVIGATOR - HARD TESTS
 // ==========================================
+void test_PartC_Navigator_Hard() {
+    cout << "\n--- Part C: World Navigator (Hard) ---" << endl;
 
-void test_PartC_Navigator() {
-    cout << "\n--- Part C: World Navigator ---" << endl;
+    // PathExists
+    vector<vector<int>> edgesEmpty;
+    runner.runTest("PathExists: empty graph", !WorldNavigator::pathExists(3, edgesEmpty, 0, 2));
+    runner.runTest("PathExists: source=dest", WorldNavigator::pathExists(3, edgesEmpty, 1, 1));
 
-    // 1. Safe Passage (Path Exists)
-    // PDF Example: 0-1, 1-2. Path 0->2 exists.
-    runner.runTest("PathExists: 0->1->2 -> True", [&]() {
-        vector<vector<int>> edges = {{0, 1}, {1, 2}};
-        return WorldNavigator::pathExists(3, edges, 0, 2) == true;
-    }());
+    // MinBribeCost
+    vector<vector<int>> disconnected = { {0,1,5,0}, {2,3,10,0} };
+    runner.runTest("MinBribeCost: disconnected graph", WorldNavigator::minBribeCost(4, 2, 1, 1, disconnected) == -1);
 
-    // 2. The Bribe (MST)
-    // PDF Example: 3 Nodes. Roads: {0,1,10}, {1,2,5}, {0,2,20}. Rate=1.
-    // MST should pick 10 and 5. Total 15.
-    runner.runTest("MinBribeCost: Triangle Graph -> Cost 15", [&]() {
-        vector<vector<int>> roads = {
-            {0, 1, 10, 0}, 
-            {1, 2, 5, 0}, 
-            {0, 2, 20, 0}
-        };
-        // n=3, m=3, goldRate=1, silverRate=1
-        return WorldNavigator::minBribeCost(3, 3, 1, 1, roads) == 15;
-    }());
+    // Stress test for MST
+    vector<vector<int>> bigRoads;
+    int n = 1000;
+    for (int i = 0; i < n - 1; i++) bigRoads.push_back({ i,i + 1,1,0 });
+    runner.runTest("MinBribeCost: large linear graph", WorldNavigator::minBribeCost(n, n - 1, 1, 1, bigRoads) == n - 1);
 
-    // 3. Teleporter (Binary Sum APSP)
-    // PDF Example: 0-1 (1), 1-2 (2). Distances: 1, 2, 3. Sum=6 -> "110"
-    runner.runTest("BinarySum: Line Graph -> '110'", [&]() {
-        vector<vector<int>> roads = {
-            {0, 1, 1},
-            {1, 2, 2}
-        };
-        return WorldNavigator::sumMinDistancesBinary(3, roads) == "110";
-    }());
+    // BinarySum
+    vector<vector<int>> roads = { {0,1,1}, {1,2,2} };
+    runner.runTest("BinarySum: line graph -> '110'", WorldNavigator::sumMinDistancesBinary(3, roads) == "110");
 }
 
 // ==========================================
-// PART D: SERVER KERNEL
+// PART D: SERVER KERNEL - HARD TESTS
 // ==========================================
+void test_PartD_Kernel_Hard() {
+    cout << "\n--- Part D: Server Kernel (Hard) ---" << endl;
 
-void test_PartD_Kernel() {
-    cout << "\n--- Part D: Server Kernel ---" << endl;
+    vector<char> tasksEmpty;
+    runner.runTest("Scheduler: empty tasks", ServerKernel::minIntervals(tasksEmpty, 2) == 0);
 
-    // 1. Task Scheduler
-    // PDF Example: Tasks={A, A, B}, n=2.
-    // Order: A -> B -> idle -> A. Total intervals: 4.
-    runner.runTest("Scheduler: {A, A, B}, n=2 -> 4 Intervals", [&]() {
-        vector<char> tasks = {'A', 'A', 'B'};
-        return ServerKernel::minIntervals(tasks, 2) == 4;
-    }());
+    vector<char> tasksAllSame(10, 'A');
+    runner.runTest("Scheduler: all same task, n=2", ServerKernel::minIntervals(tasksAllSame, 2) == (10 - 1) * (2 + 1) + 1);
+
+    vector<char> tasksMixed = { 'A','A','A','B','B','C' };
+    runner.runTest("Scheduler: mixed tasks n=2", ServerKernel::minIntervals(tasksMixed, 2) == 8);
+
+    // Stress test large number of tasks
+    vector<char> tasksLarge(1000, 'A');
+    runner.runTest("Scheduler: 1000 same tasks n=5", ServerKernel::minIntervals(tasksLarge, 5) > 0);
 }
 
+// ==========================================
+// MAIN
+// ==========================================
 int main() {
-    cout << "Arcadia Engine - Student Happy Path Tests" << endl;
+    cout << "Arcadia Engine - Hard Test Suite" << endl;
     cout << "-----------------------------------------" << endl;
 
-    test_PartA_DataStructures();
-    test_PartB_Inventory();
-    test_PartC_Navigator();
-    test_PartD_Kernel();
+    test_PartA_DataStructures_Hard();
+    test_PartB_Inventory_Hard();
+    test_PartC_Navigator_Hard();
+    test_PartD_Kernel_Hard();
 
     runner.printSummary();
-
-
-
+    return 0;
 }

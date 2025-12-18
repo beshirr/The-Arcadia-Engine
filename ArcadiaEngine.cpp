@@ -28,6 +28,31 @@ private:
     // TODO: Define your data structures here
     // Hint: You'll need a hash table with double hashing collision resolution
 
+    static const int TABLE_SIZE = 101;
+
+    struct Entry {
+        int playerID;
+        string name;
+        bool occupied;
+
+        Entry() {
+            playerID = -1;
+            name = "";
+            occupied = false;
+        }
+    };
+
+    Entry table[TABLE_SIZE];
+
+    int hash1(int key) {
+        return key % TABLE_SIZE;
+    }
+
+    int hash2(int key) {
+        return 1 + (key % (TABLE_SIZE - 1));
+    }
+
+
 public:
     ConcretePlayerTable() {
         // TODO: Initialize your hash table
@@ -36,11 +61,48 @@ public:
     void insert(int playerID, string name) override {
         // TODO: Implement double hashing insert
         // Remember to handle collisions using h1(key) + i * h2(key)
+
+        int index = hash1(playerID);
+        int step = hash2(playerID); //h2%m=v
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            int probeIndex = (index + i * step) % TABLE_SIZE;
+
+            if (table[probeIndex].occupied && table[probeIndex].playerID == playerID) {
+     // Duplicate found: update name
+             table[probeIndex].name = name;
+             return;
+                }
+            if (!table[probeIndex].occupied) {
+                table[probeIndex].playerID = playerID;
+                table[probeIndex].name = name;
+                table[probeIndex].occupied = true;
+                return;
+            }
+        }
+
+        throw runtime_error("Table is full");
+        
     }
 
     string search(int playerID) override {
         // TODO: Implement double hashing search
         // Return "" if player not found
+         int index = hash1(playerID);
+        int step = hash2(playerID);
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            int probeIndex = (index + i * step) % TABLE_SIZE;
+
+            if (!table[probeIndex].occupied) {
+                return ""; // stop early
+            }
+
+            if (table[probeIndex].occupied &&
+                table[probeIndex].playerID == playerID) {
+                return table[probeIndex].name;
+            }
+        }
         return "";
     }
 };
@@ -52,46 +114,463 @@ private:
     // TODO: Define your skip list node structure and necessary variables
     // Hint: You'll need nodes with multiple forward pointers
 
+    static const int MAX_LEVEL = 6;
+    float P = 0.5;
+
+    struct Node {
+        int playerID;
+        int score;
+        Node* forward[MAX_LEVEL];
+
+        Node(int id, int sc) : playerID(id), score(sc) {
+            for (int i = 0; i < MAX_LEVEL; i++)
+                forward[i] = nullptr;
+        }
+    };
+
+    int level;
+    Node* header;
+
+    int randomLevel() {
+        int lvl = 1;
+        while (((double)rand() / RAND_MAX) < P && lvl < MAX_LEVEL)
+            lvl++;
+        return lvl;
+    }
+
+   
+    bool isBefore(Node* a, int id, int score) {
+        if (a->score > score) return true;
+        if (a->score < score) return false;
+        return a->playerID < id;
+    }
+
 public:
     ConcreteLeaderboard() {
         // TODO: Initialize your skip list
+        level = 1;
+        header = new Node(-1, INT_MAX);
     }
 
     void addScore(int playerID, int score) override {
         // TODO: Implement skip list insertion
         // Remember to maintain descending order by score
+
+        Node* update[MAX_LEVEL];
+        Node* curr = header;
+
+        for (int i = level - 1; i >= 0; i--) {
+            while (curr->forward[i] &&
+                isBefore(curr->forward[i], playerID, score)) {
+                curr = curr->forward[i];
+            }
+            update[i] = curr;
+        }
+        
+        int newLevel = randomLevel(); 
+        if (newLevel > level) {
+            for (int i = level; i < newLevel; i++)
+                update[i] = header;
+            level = newLevel;
+        }
+
+        Node* newNode = new Node(playerID, score);
+        for (int i = 0; i < newLevel; i++) {
+            newNode->forward[i] = update[i]->forward[i];
+            update[i]->forward[i] = newNode;
+        }
     }
 
     void removePlayer(int playerID) override {
         // TODO: Implement skip list deletion
-    }
+        Node* scan = header->forward[0];
+        int score = -1;
+        while (scan) {
+            if (scan->playerID == playerID) {
+                score = scan->score;
+                break;
+            }
+            scan = scan->forward[0];
+        }
+        if (score == -1) return;
 
+        Node* update[MAX_LEVEL];
+        Node* curr = header;
+
+        for (int i = level - 1; i >= 0; i--) {
+            while (curr->forward[i] &&
+                isBefore(curr->forward[i], playerID, score)) {
+                curr = curr->forward[i];
+            }
+            update[i] = curr;
+        }
+
+        Node* target = curr->forward[0];
+        if (!target || target->playerID != playerID) return;
+
+        for (int i = 0; i < level; i++) {
+
+            if (update[i]->forward[i] != target) break;
+
+            update[i]->forward[i] = target->forward[i];
+        }
+
+        delete target;
+
+        while (level > 1 && header->forward[level - 1] == nullptr)
+            level--;
+
+    }
     vector<int> getTopN(int n) override {
         // TODO: Return top N player IDs in descending score order
-        return {};
+
+        vector<int> result;
+        Node* curr = header->forward[0];
+
+        while (curr && n--) {
+            result.push_back(curr->playerID);
+            curr = curr->forward[0];
+        }
+        return result;
     }
 };
-
 // --- 3. AuctionTree (Red-Black Tree) ---
 
 class ConcreteAuctionTree : public AuctionTree {
 private:
     // TODO: Define your Red-Black Tree node structure
     // Hint: Each node needs: id, price, color, left, right, parent pointers
+    enum Color { RED, BLACK };
+    struct Node {
+        int itemID;
+        int price;
+        Color color;
+
+        Node* left;
+        Node* right;
+        Node* parent;
+
+        Node(int id, int p)
+            : itemID(id), price(p), color(RED),
+            left(nullptr), right(nullptr), parent(nullptr) {}
+    };
+
+    Node* root;
 
 public:
     ConcreteAuctionTree() {
         // TODO: Initialize your Red-Black Tree
+        root = nullptr;
     }
+
+    bool isBefore(Node* a, int id, int price) {
+        if (a->price < price) return true;
+        if (a->price > price) return false;
+        return a->itemID < id;
+    }
+
+    void leftRotate(Node* x) {
+        Node* y = x->right;
+
+        x->right = y->left;
+        if (y->left != nullptr)
+            y->left->parent = x;
+
+        y->parent = x->parent;
+
+        if (x->parent == nullptr)
+            root = y;
+        else if (x == x->parent->left)
+            x->parent->left = y;
+        else
+            x->parent->right = y;
+
+        y->left = x;
+        x->parent = y;
+    }
+
+
+    void rightRotate(Node* y) {
+        Node* x = y->left;
+
+   
+        y->left = x->right;
+
+        if (x->right != nullptr)
+            x->right->parent = y;
+
+      
+        x->parent = y->parent;
+
+        if (y->parent == nullptr) {
+
+            root = x;
+        }
+        else if (y == y->parent->left) {
+           
+            y->parent->left = x;
+        }
+        else {
+
+            y->parent->right = x;
+        }
+
+       
+        x->right = y;
+        y->parent = x;
+    }
+
+    void bstInsert(Node* z) {
+        Node* y = nullptr;
+        Node* x = root;
+
+        while (x != nullptr) {
+            y = x;
+            if (z->price < x->price ||
+                (z->price == x->price && z->itemID < x->itemID))
+                x = x->left;
+            else
+                x = x->right;
+        }
+
+        z->parent = y;
+
+        if (y == nullptr)
+            root = z;
+        else if (z->price < y->price ||
+            (z->price == y->price && z->itemID < y->itemID))
+            y->left = z;
+        else
+            y->right = z;
+    }
+
+    void fixInsert(Node* x) {
+
+        while (x != root && x->parent->color == RED) {
+
+            // parent is LEFT child
+            if (x->parent == x->parent->parent->left) {
+
+                Node* y = x->parent->parent->right; // uncle
+
+                // CASE 1: uncle is RED
+                if (y != nullptr && y->color == RED) {
+                    x->parent->color = BLACK;
+                    y->color = BLACK;
+                    x->parent->parent->color = RED;
+                    x = x->parent->parent;
+                }
+                else {
+                    // CASE 2: x is right child (zig-zag)
+                    if (x == x->parent->right) {
+                        x = x->parent;
+                        leftRotate(x);
+                    }
+
+                    // CASE 3: zig-zig
+                    x->parent->color = BLACK;
+                    x->parent->parent->color = RED;
+                    rightRotate(x->parent->parent);
+                }
+            }
+            // parent is RIGHT child (symmetric)
+            else {
+
+                Node* y = x->parent->parent->left; // uncle
+
+                // CASE 1
+                if (y != nullptr && y->color == RED) {
+                    x->parent->color = BLACK;
+                    y->color = BLACK;
+                    x->parent->parent->color = RED;
+                    x = x->parent->parent;
+                }
+                else {
+                    // CASE 2
+                    if (x == x->parent->left) {
+                        x = x->parent;
+                        rightRotate(x);
+                    }
+
+                    // CASE 3
+                    x->parent->color = BLACK;
+                    x->parent->parent->color = RED;
+                    leftRotate(x->parent->parent);
+                }
+            }
+        }
+
+        root->color = BLACK;
+    }
+
+
 
     void insertItem(int itemID, int price) override {
         // TODO: Implement Red-Black Tree insertion
         // Remember to maintain RB-Tree properties with rotations and recoloring
+        Node* newNode = new Node(itemID, price);
+        bstInsert(newNode);      // BST insert
+        fixInsert(newNode);      // RB fix
+    }
+
+    Node* minimum(Node* node) {
+        while (node->left != nullptr)
+            node = node->left;
+        return node;
+    }
+
+    void transplant(Node* u, Node* v) {
+        if (u->parent == nullptr)
+            root = v;
+        else if (u == u->parent->left)
+            u->parent->left = v;
+        else
+            u->parent->right = v;
+
+        if (v != nullptr)
+            v->parent = u->parent;
+    }
+
+    Node* searchByID(Node* node, int itemID) {
+        if (node == nullptr) return nullptr;
+        if (node->itemID == itemID) return node;
+
+        Node* left = searchByID(node->left, itemID);
+        if (left != nullptr) return left;
+
+        return searchByID(node->right, itemID);
+    }
+
+    void fixDelete(Node* x) {
+
+        while (x != root && (x == nullptr || x->color == BLACK)) {
+
+            // x is LEFT child
+            if (x == x->parent->left) {
+
+                Node* w = x->parent->right; // sibling
+
+                // Case 1: sibling is RED
+                if (w->color == RED) {
+                    w->color = BLACK;
+                    x->parent->color = RED;
+                    leftRotate(x->parent);
+                    w = x->parent->right;
+                }
+
+                // Case 2: sibling black + children black
+                if ((w->left == nullptr || w->left->color == BLACK) &&
+                    (w->right == nullptr || w->right->color == BLACK)) {
+
+                    w->color = RED;
+                    x = x->parent;
+                }
+                else {
+                    // Case 3: far child black, near child red
+                    if (w->right == nullptr || w->right->color == BLACK) {
+                        if (w->left != nullptr)
+                            w->left->color = BLACK;
+                        w->color = RED;
+                        rightRotate(w);
+                        w = x->parent->right;
+                    }
+
+                    // Case 4
+                    w->color = x->parent->color;
+                    x->parent->color = BLACK;
+                    if (w->right != nullptr)
+                        w->right->color = BLACK;
+                    leftRotate(x->parent);
+                    x = root;
+                }
+            }
+            // x is RIGHT child (symmetric)
+            else {
+
+                Node* w = x->parent->left;
+
+                if (w->color == RED) {
+                    w->color = BLACK;
+                    x->parent->color = RED;
+                    rightRotate(x->parent);
+                    w = x->parent->left;
+                }
+
+                if ((w->right == nullptr || w->right->color == BLACK) &&
+                    (w->left == nullptr || w->left->color == BLACK)) {
+
+                    w->color = RED;
+                    x = x->parent;
+                }
+                else {
+                    if (w->left == nullptr || w->left->color == BLACK) {
+                        if (w->right != nullptr)
+                            w->right->color = BLACK;
+                        w->color = RED;
+                        leftRotate(w);
+                        w = x->parent->left;
+                    }
+
+                    w->color = x->parent->color;
+                    x->parent->color = BLACK;
+                    if (w->left != nullptr)
+                        w->left->color = BLACK;
+                    rightRotate(x->parent);
+                    x = root;
+                }
+            }
+        }
+
+        if (x != nullptr)
+            x->color = BLACK;
     }
 
     void deleteItem(int itemID) override {
         // TODO: Implement Red-Black Tree deletion
         // This is complex - handle all cases carefully
+        Node* z = searchByID(root, itemID);
+        if (z == nullptr) return;
+
+        Node* y = z;
+        Color yOriginalColor = y->color;
+        Node* x = nullptr;
+
+        // Case 1: there is no left child
+        if (z->left == nullptr) {
+            x = z->right;
+            transplant(z, z->right);
+        }
+        // Case 2: there is no right child
+        else if (z->right == nullptr) {
+            x = z->left;
+            transplant(z, z->left);
+        }
+        // Case 3: two children
+        else {
+            y = minimum(z->right);
+            yOriginalColor = y->color;
+            x = y->right;
+
+            if (y->parent == z) {
+                if (x != nullptr)
+                    x->parent = y;
+            }
+            else {
+                transplant(y, y->right);
+                y->right = z->right;
+                y->right->parent = y;
+            }
+
+            transplant(z, y);
+            y->left = z->left;
+            y->left->parent = y;
+            y->color = z->color;
+        }
+
+        delete z;
+
+        if (yOriginalColor == BLACK && x != nullptr)
+            fixDelete(x);
     }
 };
 
